@@ -91,6 +91,59 @@ void Layer::setMaxZoom(float maxZoom) {
     observer->onLayerChanged(*this);
 }
 
+Value Layer::serialize() const {
+    mapbox::base::ValueObject result;
+    result.emplace("id", getID());
+
+    auto source = getSourceID();
+    if (!source.empty()) {
+        result.emplace("source", std::move(source));
+    }
+
+    if (!std::string(Layer::getTypeInfo()->type).empty()) {
+        result.emplace("type", getID());
+    }
+
+    auto sourceLayer = getSourceLayer();
+    if (!sourceLayer.empty()) {
+        result.emplace("source-layer", std::move(sourceLayer));
+    }
+
+    if (getFilter()) {
+        result.emplace("filter", getFilter().serialize());
+    }
+
+    if (getMinZoom() != -std::numeric_limits<float>::infinity()) {
+        result.emplace("minzoom", getMinZoom());
+    }
+
+    if (getMaxZoom() != std::numeric_limits<float>::infinity()) {
+        result.emplace("maxzoom", getMaxZoom());
+    }
+
+    if (getVisibility() == VisibilityType::None) {
+        result["layout"] = mapbox::base::ValueObject{{"visibility", "none"}};
+    }
+
+    return result;
+}
+
+void Layer::serializeProperty(Value& out,
+                              const StyleProperty& property,
+                              const char* propertyName,
+                              uint8_t propertyId,
+                              uint8_t paintPropertyCount) const {
+    assert(out.getObject());
+    auto& object = *(out.getObject());
+    std::string propertyType = propertyId < paintPropertyCount ? "paint" : "layout";
+    if (object.count(propertyType)) {
+        assert(object[propertyType].getObject());
+        object[propertyType].getObject()->emplace(propertyName, property.getValue());
+    } else {
+        object[propertyType] = mapbox::base::ValueObject{{propertyName, property.getValue()}};
+    }
+}
+
 void Layer::setObserver(LayerObserver* observer_) {
     observer = observer_ ? observer_ : &nullObserver;
 }
